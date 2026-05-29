@@ -6,46 +6,85 @@
 <title>PIXE ADO Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// Password gate — checked before any content renders
+// 2-step auth gate: password → email allowlist
 (function(){
-  const HASH = "c09d7446cfaec9af73e66dc0e189b0cedd18d2ff54813e92fadb5a659aab20de";
-  const KEY  = "pixe_dash_auth";
+  const HASH         = "c09d7446cfaec9af73e66dc0e189b0cedd18d2ff54813e92fadb5a659aab20de";
+  const ALLOWED_DOMAIN = "@microsoft.com";
+  const EXTRA_EMAILS = ["v-smayekar@microsoft.com", "v-vsandeep@microsoft.com", "v-vchinthala@microsoft.com"];
+  const KEY_AUTH     = "pixe_dash_auth";
+  const KEY_EMAIL    = "pixe_dash_email";
+
+  function isEmailAllowed(email) {
+    const e = email.trim().toLowerCase();
+    if (e.endsWith(ALLOWED_DOMAIN)) return true;
+    return EXTRA_EMAILS.map(x => x.toLowerCase()).includes(e);
+  }
+
   async function sha256(str) {
     const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
   }
+
+  function showMain() {
+    const mc = document.getElementById("__main_content");
+    const ov = document.getElementById("__auth_overlay");
+    const wb = document.getElementById("__welcome_bar");
+    const em = sessionStorage.getItem(KEY_EMAIL);
+    if (mc) mc.style.display = "";
+    if (ov) ov.style.display = "none";
+    if (wb && em) wb.textContent = "Signed in as " + em;
+  }
+
+  function showStep(step) {
+    document.getElementById("__step_pwd").style.display   = step === 1 ? "" : "none";
+    document.getElementById("__step_email").style.display = step === 2 ? "" : "none";
+  }
+
   async function gate() {
-    if (sessionStorage.getItem(KEY) === HASH) {
-      // Already authenticated in this tab — show content immediately
-      document.addEventListener("DOMContentLoaded", () => {
-        const mc = document.getElementById("__main_content");
-        const ov = document.getElementById("__auth_overlay");
-        if (mc) mc.style.display = "";
-        if (ov) ov.style.display = "none";
-      });
+    // Already fully authenticated in this session
+    if (sessionStorage.getItem(KEY_AUTH) === HASH && sessionStorage.getItem(KEY_EMAIL)) {
+      document.addEventListener("DOMContentLoaded", showMain);
       return;
     }
-    // Show login overlay immediately
-    document.documentElement.style.display = "none";
+
+    // Hide page until DOM is ready, then show the overlay
+    document.documentElement.style.visibility = "hidden";
     document.addEventListener("DOMContentLoaded", () => {
-      document.documentElement.style.display = "";
-      const overlay = document.getElementById("__auth_overlay");
-      if (overlay) overlay.style.display = "flex";
-      const form = document.getElementById("__auth_form");
-      const err  = document.getElementById("__auth_err");
-      if (!form) return;
-      form.addEventListener("submit", async e => {
+      document.documentElement.style.visibility = "";
+      document.getElementById("__auth_overlay").style.display = "flex";
+      showStep(1);
+
+      // ── Step 1: Password ────────────────────────────────────────
+      document.getElementById("__form_pwd").addEventListener("submit", async e => {
         e.preventDefault();
-        const pwd = document.getElementById("__auth_pwd").value;
+        const pwd = document.getElementById("__input_pwd").value;
         const h   = await sha256(pwd);
         if (h === HASH) {
-          sessionStorage.setItem(KEY, HASH);
-          overlay.style.display = "none";
-          document.getElementById("__main_content").style.display = "";
+          sessionStorage.setItem(KEY_AUTH, HASH);
+          document.getElementById("__err_pwd").textContent = "";
+          showStep(2);
+          document.getElementById("__dot1").classList.remove("active");
+          document.getElementById("__dot2").classList.add("active");
+          document.getElementById("__input_email").focus();
         } else {
-          err.textContent = "Incorrect password. Please try again.";
-          document.getElementById("__auth_pwd").value = "";
-          document.getElementById("__auth_pwd").focus();
+          document.getElementById("__err_pwd").textContent = "Incorrect password. Please try again.";
+          document.getElementById("__input_pwd").value = "";
+          document.getElementById("__input_pwd").focus();
+        }
+      });
+
+      // ── Step 2: Email ────────────────────────────────────────────
+      document.getElementById("__form_email").addEventListener("submit", e => {
+        e.preventDefault();
+        const email = document.getElementById("__input_email").value.trim().toLowerCase();
+        if (isEmailAllowed(email)) {
+          sessionStorage.setItem(KEY_EMAIL, email);
+          showMain();
+        } else {
+          document.getElementById("__err_email").textContent =
+            "Access denied. Only @microsoft.com accounts or authorised users may access this dashboard.";
+          document.getElementById("__input_email").value = "";
+          document.getElementById("__input_email").focus();
         }
       });
     });
@@ -320,38 +359,65 @@ td{padding:8px 12px;vertical-align:middle}
   display:none;align-items:center;justify-content:center;z-index:9999;
 }
 #__auth_box{
-  background:#fff;border-radius:12px;padding:40px 44px;width:340px;
+  background:#fff;border-radius:12px;padding:40px 44px;width:360px;
   box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;
 }
-#__auth_box .logo{font-size:32px;margin-bottom:8px}
+#__auth_box .logo{font-size:36px;margin-bottom:8px}
 #__auth_box h2{font-size:18px;font-weight:700;color:#0078d4;margin-bottom:4px}
-#__auth_box p{font-size:12px;color:#605e5c;margin-bottom:24px}
-#__auth_pwd{
+#__auth_box .sub{font-size:12px;color:#605e5c;margin-bottom:22px}
+.auth-step{ transition:opacity .2s }
+.auth-input{
   width:100%;padding:10px 14px;border:1px solid #d2d0ce;border-radius:6px;
-  font-size:14px;outline:none;margin-bottom:12px;
+  font-size:14px;outline:none;margin-bottom:12px;display:block;
 }
-#__auth_pwd:focus{border-color:#0078d4;box-shadow:0 0 0 2px rgba(0,120,212,.2)}
-#__auth_btn{
+.auth-input:focus{border-color:#0078d4;box-shadow:0 0 0 2px rgba(0,120,212,.2)}
+.auth-btn{
   width:100%;padding:10px;background:#0078d4;color:#fff;border:none;
   border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;
 }
-#__auth_btn:hover{background:#005a9e}
-#__auth_err{color:#a4262c;font-size:12px;margin-top:8px;min-height:16px}
+.auth-btn:hover{background:#005a9e}
+.auth-err{color:#a4262c;font-size:12px;margin-top:8px;min-height:16px;text-align:left}
+.auth-back{font-size:12px;color:#0078d4;cursor:pointer;margin-top:10px;display:inline-block;background:none;border:none}
+.auth-step-hint{font-size:11px;color:#a19f9d;margin-bottom:6px;text-align:left}
+.auth-steps-dots{display:flex;justify-content:center;gap:6px;margin-bottom:20px}
+.auth-steps-dots span{width:8px;height:8px;border-radius:50%;background:#e1dfdd;transition:background .2s}
+.auth-steps-dots span.active{background:#0078d4}
+#__welcome_bar{font-size:11px;opacity:.8;text-align:right}
 </style>
 </head>
 <body>
 
-<!-- Login overlay (shown before auth) -->
-<div id="__auth_overlay" style="display:flex">
+<!-- 2-step auth overlay -->
+<div id="__auth_overlay" style="display:none">
   <div id="__auth_box">
     <div class="logo">📊</div>
     <h2>PIXE ADO Dashboard</h2>
-    <p>CTS Support Team — Restricted Access</p>
-    <form id="__auth_form">
-      <input id="__auth_pwd" type="password" placeholder="Enter password" autocomplete="current-password" required autofocus>
-      <button id="__auth_btn" type="submit">Sign In</button>
-    </form>
-    <div id="__auth_err"></div>
+    <p class="sub">CTS Support Team — Restricted Access</p>
+    <div class="auth-steps-dots">
+      <span id="__dot1" class="active"></span>
+      <span id="__dot2"></span>
+    </div>
+
+    <!-- Step 1: Password -->
+    <div id="__step_pwd" class="auth-step">
+      <p class="auth-step-hint">Step 1 of 2 — Enter access password</p>
+      <form id="__form_pwd">
+        <input id="__input_pwd" class="auth-input" type="password" placeholder="Password" autocomplete="current-password" required autofocus>
+        <button class="auth-btn" type="submit">Continue →</button>
+      </form>
+      <div id="__err_pwd" class="auth-err"></div>
+    </div>
+
+    <!-- Step 2: Email verification -->
+    <div id="__step_email" class="auth-step" style="display:none">
+      <p class="auth-step-hint">Step 2 of 2 — Verify your Microsoft email</p>
+      <form id="__form_email">
+        <input id="__input_email" class="auth-input" type="email" placeholder="you@microsoft.com" autocomplete="email" required>
+        <button class="auth-btn" type="submit">Access Dashboard</button>
+      </form>
+      <div id="__err_email" class="auth-err"></div>
+      <button class="auth-back" onclick="document.getElementById('__step_pwd').style.display='';document.getElementById('__step_email').style.display='none';document.getElementById('__dot1').classList.add('active');document.getElementById('__dot2').classList.remove('active');">← Back</button>
+    </div>
   </div>
 </div>
 
@@ -365,6 +431,7 @@ td{padding:8px 12px;vertical-align:middle}
     PIXE ADO Dashboard <span class="hdr-badge">partnerops</span>
   </h1>
   <div style="display:flex;gap:12px;align-items:center">
+    <span id="__welcome_bar"></span>
     <span style="font-size:11px;opacity:.8;text-align:right" id="lastRefresh"></span>
     <button class="btn-hdr" onclick="location.reload()">⟳ Refresh</button>
   </div>
