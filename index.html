@@ -1009,10 +1009,10 @@ function openModal(id){
         </span>
       </div>
       <div class="desc-box">${it.last_comment_text}</div>
-    </div>`:${it.description_preview?`<div class="modal-section">
+    </div>`:(it.description_preview?`<div class="modal-section">
       <div class="modal-section-title">Description Preview</div>
       <div class="desc-box">${it.description_preview}</div>
-    </div>`:''}}
+    </div>`:'')}
   `;
 
   document.getElementById('mActions').innerHTML=`
