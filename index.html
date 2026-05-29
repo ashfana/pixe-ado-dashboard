@@ -5,6 +5,54 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>PIXE ADO Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Password gate — checked before any content renders
+(function(){
+  const HASH = "c09d7446cfaec9af73e66dc0e189b0cedd18d2ff54813e92fadb5a659aab20de";
+  const KEY  = "pixe_dash_auth";
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  async function gate() {
+    if (sessionStorage.getItem(KEY) === HASH) {
+      // Already authenticated in this tab — show content immediately
+      document.addEventListener("DOMContentLoaded", () => {
+        const mc = document.getElementById("__main_content");
+        const ov = document.getElementById("__auth_overlay");
+        if (mc) mc.style.display = "";
+        if (ov) ov.style.display = "none";
+      });
+      return;
+    }
+    // Show login overlay immediately
+    document.documentElement.style.display = "none";
+    document.addEventListener("DOMContentLoaded", () => {
+      document.documentElement.style.display = "";
+      const overlay = document.getElementById("__auth_overlay");
+      if (overlay) overlay.style.display = "flex";
+      const form = document.getElementById("__auth_form");
+      const err  = document.getElementById("__auth_err");
+      if (!form) return;
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        const pwd = document.getElementById("__auth_pwd").value;
+        const h   = await sha256(pwd);
+        if (h === HASH) {
+          sessionStorage.setItem(KEY, HASH);
+          overlay.style.display = "none";
+          document.getElementById("__main_content").style.display = "";
+        } else {
+          err.textContent = "Incorrect password. Please try again.";
+          document.getElementById("__auth_pwd").value = "";
+          document.getElementById("__auth_pwd").focus();
+        }
+      });
+    });
+  }
+  gate();
+})();
+</script>
 <style>
 :root{
   --blue:#0078d4;--blue-dk:#005a9e;--teal:#00b294;--orange:#d83b01;
@@ -265,8 +313,50 @@ td{padding:8px 12px;vertical-align:middle}
            padding:9px 16px;border-radius:4px;cursor:pointer;font-size:13px}
 .btn-copy:hover{background:var(--gray-lt)}
 </style>
+<style>
+/* ── Auth overlay ────────────────────────────────────── */
+#__auth_overlay{
+  position:fixed;inset:0;background:linear-gradient(135deg,#0078d4 0%,#005a9e 100%);
+  display:none;align-items:center;justify-content:center;z-index:9999;
+}
+#__auth_box{
+  background:#fff;border-radius:12px;padding:40px 44px;width:340px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;
+}
+#__auth_box .logo{font-size:32px;margin-bottom:8px}
+#__auth_box h2{font-size:18px;font-weight:700;color:#0078d4;margin-bottom:4px}
+#__auth_box p{font-size:12px;color:#605e5c;margin-bottom:24px}
+#__auth_pwd{
+  width:100%;padding:10px 14px;border:1px solid #d2d0ce;border-radius:6px;
+  font-size:14px;outline:none;margin-bottom:12px;
+}
+#__auth_pwd:focus{border-color:#0078d4;box-shadow:0 0 0 2px rgba(0,120,212,.2)}
+#__auth_btn{
+  width:100%;padding:10px;background:#0078d4;color:#fff;border:none;
+  border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;
+}
+#__auth_btn:hover{background:#005a9e}
+#__auth_err{color:#a4262c;font-size:12px;margin-top:8px;min-height:16px}
+</style>
 </head>
 <body>
+
+<!-- Login overlay (shown before auth) -->
+<div id="__auth_overlay" style="display:flex">
+  <div id="__auth_box">
+    <div class="logo">📊</div>
+    <h2>PIXE ADO Dashboard</h2>
+    <p>CTS Support Team — Restricted Access</p>
+    <form id="__auth_form">
+      <input id="__auth_pwd" type="password" placeholder="Enter password" autocomplete="current-password" required autofocus>
+      <button id="__auth_btn" type="submit">Sign In</button>
+    </form>
+    <div id="__auth_err"></div>
+  </div>
+</div>
+
+<!-- Main content (hidden until authenticated) -->
+<div id="__main_content" style="display:none">
 
 <div class="hdr">
   <h1>
@@ -1005,5 +1095,6 @@ function makeFollowupMailto(it,email){
   return 'mailto:'+email+'?subject='+subj+'&body='+body;
 }
 </script>
+</div><!-- /__main_content -->
 </body>
 </html>
