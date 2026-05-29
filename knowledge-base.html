@@ -26,7 +26,7 @@
     const ov=document.getElementById("__auth_overlay");
     const wb=document.getElementById("__welcome_bar");
     const em=sessionStorage.getItem(KEY_EMAIL);
-    if(mc)mc.style.display="";
+    if(mc)mc.style.display="block";
     if(ov)ov.style.display="none";
     if(wb&&em)wb.textContent="Signed in as "+em;
   }
