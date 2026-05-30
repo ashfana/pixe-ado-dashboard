@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PIXE Knowledge Base</title>
+<script>
+// 2-step auth gate
+(function(){
+  const HASH="c09d7446cfaec9af73e66dc0e189b0cedd18d2ff54813e92fadb5a659aab20de";
+  const ALLOWED_DOMAIN="@microsoft.com";
+  const EXTRA_EMAILS=["v-smayekar@microsoft.com", "v-vsandeep@microsoft.com", "v-vchinthala@microsoft.com", "v-tdora@microsoft.com", "v-moafzal@microsoft.com"];
+  const KEY_AUTH="pixe_dash_auth";
+  const KEY_EMAIL="pixe_dash_email";
+  function isEmailAllowed(e){
+    e=e.trim().toLowerCase();
+    if(e.endsWith(ALLOWED_DOMAIN))return true;
+    return EXTRA_EMAILS.map(x=>x.toLowerCase()).includes(e);
+  }
+  async function sha256(str){
+    const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  function showMain(){
+    const mc=document.getElementById("__main_content");
+    const ov=document.getElementById("__auth_overlay");
+    const wb=document.getElementById("__welcome_bar");
+    const em=sessionStorage.getItem(KEY_EMAIL);
+    if(mc)mc.style.display="block";
+    if(ov)ov.style.display="none";
+    if(wb&&em)wb.textContent="Signed in as "+em;
+  }
+  function showStep(step){
+    document.getElementById("__step_pwd").style.display=step===1?"":"none";
+    document.getElementById("__step_email").style.display=step===2?"":"none";
+  }
+  async function gate(){
+    if(sessionStorage.getItem(KEY_AUTH)===HASH&&sessionStorage.getItem(KEY_EMAIL)){
+      document.addEventListener("DOMContentLoaded",showMain);return;
+    }
+    document.documentElement.style.visibility="hidden";
+    document.addEventListener("DOMContentLoaded",()=>{
+      document.documentElement.style.visibility="";
+      document.getElementById("__auth_overlay").style.display="flex";
+      showStep(1);
+      document.getElementById("__form_pwd").addEventListener("submit",async e=>{
+        e.preventDefault();
+        const h=await sha256(document.getElementById("__inp_pwd").value);
+        if(h===HASH){sessionStorage.setItem(KEY_AUTH,h);showStep(2);}
+        else{document.getElementById("__err_pwd").textContent="Incorrect password.";}
+      });
+      document.getElementById("__form_email").addEventListener("submit",e=>{
+        e.preventDefault();
+        const email=document.getElementById("__inp_email").value.trim();
+        if(isEmailAllowed(email)){
+          sessionStorage.setItem(KEY_EMAIL,email);showMain();loadData();
+        }else{
+          document.getElementById("__err_email").textContent="Access denied: "+email+" is not on the allowed list.";
+        }
+      });
+      document.getElementById("__btn_back").addEventListener("click",()=>showStep(1));
+    });
+  }
+  gate();
+})();
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f3f2f1;color:#323130}
+/* Auth overlay */
+#__auth_overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
+  z-index:9999;justify-content:center;align-items:center}
+.auth-box{background:#fff;border-radius:8px;padding:40px;width:360px;
+  box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.auth-box h2{font-size:18px;margin-bottom:6px;color:#0078d4}
+.auth-box p{font-size:13px;color:#605e5c;margin-bottom:20px}
+.auth-box input{width:100%;padding:10px 12px;border:1px solid #c8c6c4;border-radius:4px;
+  font-size:14px;margin-bottom:12px;outline:none}
+.auth-box input:focus{border-color:#0078d4}
+.auth-box button{width:100%;padding:10px;background:#0078d4;color:#fff;border:none;
+  border-radius:4px;font-size:14px;cursor:pointer;font-weight:600}
+.auth-box button:hover{background:#106ebe}
+.auth-err{color:#d13438;font-size:12px;margin-top:-8px;margin-bottom:10px;min-height:16px}
+.auth-steps{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
+.step-dot{width:10px;height:10px;border-radius:50%;background:#c8c6c4}
+.step-dot.active{background:#0078d4}
+.btn-back{background:none!important;color:#0078d4!important;font-weight:400!important;
+  font-size:13px!important;margin-top:8px;padding:4px 0!important;text-align:left!important;width:auto!important}
+
+/* Layout */
+#__main_content{display:none}
+.hdr{background:#0078d4;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:16px;
+  box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.hdr h1{font-size:18px;font-weight:600;flex:1}
+.hdr-badge{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:20px;font-size:12px}
+.hdr-link{color:#fff;font-size:13px;text-decoration:none;opacity:.85;
+  border:1px solid rgba(255,255,255,.4);padding:4px 12px;border-radius:4px}
+.hdr-link:hover{opacity:1;background:rgba(255,255,255,.15)}
+#__welcome_bar{font-size:12px;opacity:.8}
+
+.container{max-width:1300px;margin:0 auto;padding:24px 20px}
+
+/* Search bar */
+.search-section{background:#fff;border-radius:8px;padding:28px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:20px}
+.search-section h2{font-size:16px;font-weight:600;margin-bottom:6px}
+.search-section p{font-size:13px;color:#605e5c;margin-bottom:16px}
+.search-row{display:flex;gap:10px;align-items:center}
+#searchInput{flex:1;padding:12px 16px;font-size:15px;border:2px solid #0078d4;
+  border-radius:6px;outline:none}
+#searchInput:focus{border-color:#005a9e;box-shadow:0 0 0 3px rgba(0,120,212,.15)}
+#searchBtn{padding:12px 24px;background:#0078d4;color:#fff;border:none;border-radius:6px;
+  font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+#searchBtn:hover{background:#106ebe}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.filter-row label{font-size:12px;color:#605e5c;margin-right:4px}
+.cap-filter{padding:5px 12px;font-size:12px;border:1px solid #c8c6c4;border-radius:20px;
+  cursor:pointer;background:#fff;transition:all .15s}
+.cap-filter.active{color:#fff;border-color:transparent}
+.cap-filter:hover{opacity:.85}
+
+/* Stats bar */
+.stats-bar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.stat-chip{background:#fff;border-radius:6px;padding:10px 16px;font-size:13px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;gap:6px}
+.stat-chip strong{font-size:18px;color:#0078d4}
+
+/* Results */
+.results-header{font-size:13px;color:#605e5c;margin-bottom:12px}
+.results-header strong{color:#323130}
+
+.result-card{background:#fff;border-radius:8px;padding:20px;margin-bottom:12px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid #0078d4;
+  transition:box-shadow .15s}
+.result-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.card-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.score-badge{background:#0078d4;color:#fff;border-radius:20px;padding:3px 10px;
+  font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;margin-top:2px}
+.card-title{font-size:14px;font-weight:600;flex:1;line-height:1.4}
+.card-title a{color:#0078d4;text-decoration:none}
+.card-title a:hover{text-decoration:underline}
+.card-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.cap-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;color:#fff}
+.state-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;
+  background:#e8f4e8;color:#107c10;border:1px solid #107c10}
+.state-badge.closed{background:#f4f4f4;color:#605e5c;border-color:#c8c6c4}
+.meta-item{font-size:12px;color:#605e5c}
+.card-summary{font-size:13px;line-height:1.6;color:#323130}
+.highlight{background:#fff3cd;padding:1px 2px;border-radius:2px;font-weight:600}
+.summary-structured{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.summary-section{font-size:13px;line-height:1.5;color:#323130}
+.summary-label{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.3px}
+.summary-content{color:#323130}
+
+.no-results{text-align:center;padding:60px 20px;color:#605e5c}
+.no-results h3{font-size:18px;margin-bottom:8px;color:#323130}
+.no-results p{font-size:14px}
+
+.loading{text-align:center;padding:60px 20px;color:#605e5c;font-size:14px}
+
+/* Pagination */
+.pager{display:flex;gap:8px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.pager button{padding:6px 14px;border:1px solid #c8c6c4;background:#fff;border-radius:4px;
+  font-size:13px;cursor:pointer}
+.pager button.active{background:#0078d4;color:#fff;border-color:#0078d4}
+.pager button:hover:not(.active){background:#f3f2f1}
+</style>
+</head>
+<body>
+
+<!-- Auth overlay -->
+<div id="__auth_overlay">
+  <div class="auth-box">
+    <h2>&#128269; PIXE Knowledge Base</h2>
+    <p>Resolved &amp; Closed case history &#8212; search for similar past issues</p>
+    <div class="auth-steps">
+      <div class="step-dot active" id="__dot1"></div>
+      <div class="step-dot" id="__dot2"></div>
+    </div>
+    <div id="__step_pwd">
+      <form id="__form_pwd">
+        <input type="password" id="__inp_pwd" placeholder="Dashboard password" autocomplete="current-password">
+        <div class="auth-err" id="__err_pwd"></div>
+        <button type="submit">Continue &#8594;</button>
+      </form>
+    </div>
+    <div id="__step_email" style="display:none">
+      <form id="__form_email">
+        <input type="email" id="__inp_email" placeholder="Your Microsoft email" autocomplete="email">
+        <div class="auth-err" id="__err_email"></div>
+        <button type="submit">Access Knowledge Base</button>
+        <button type="button" class="btn-back" id="__btn_back">&#8592; Back</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="__main_content">
+  <div class="hdr">
+    <h1>&#128269; PIXE Knowledge Base</h1>
+    <span class="hdr-badge">7809 resolved cases &middot; 2026-05-30 09:00 UTC</span>
+    <a href="index.html" class="hdr-link">&#8592; Live Dashboard</a>
+    <span id="__welcome_bar"></span>
+  </div>
+
+  <div class="container">
+    <!-- Search -->
+    <div class="search-section">
+      <h2>Search past resolved cases</h2>
+      <p>Enter error details, keywords, partner name, or describe the issue. Multi-keyword search returns the most relevant past cases ranked by similarity.</p>
+      <div class="search-row">
+        <input type="text" id="searchInput" placeholder="e.g.  invoice missing  or  enrollment calculation error  or  CPOR payment discrepancy" autofocus>
+        <button id="searchBtn">&#128269; Search</button>
+      </div>
+      <div class="filter-row">
+        <label>Filter by capability:</label>
+        <button class="cap-filter active" data-cap="" style="background:#0078d4;color:#fff;border-color:#0078d4">All</button>
+        <!-- Capability buttons injected by JS -->
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="statsBar"></div>
+
+    <!-- Results header -->
+    <div class="results-header" id="resultsHeader"></div>
+
+    <!-- Results list -->
+    <div id="resultsList"><div class="loading">Loading search index&hellip;</div></div>
+
+    <!-- Pager -->
+    <div class="pager" id="pager"></div>
+  </div>
+</div>
+
+<script>
+const CAP_COLORS = {"COOP Claim": "#e3008c", "CPOR/DPOR": "#ca5010", "Calculation": "#8764b8", "Claim": "#605e5c", "Deal Registration": "#605e5c", "Eligibility": "#00b294", "Enrollment": "#0078d4", "MPP Claims": "#605e5c", "MPP POE": "#605e5c", "Other": "#605e5c", "POE CPOR": "#038387", "POE Workshops": "#0099bc", "Payment": "#107c10", "Reporting": "#986f0b", "claim": "#605e5c"};
+const PAGE_SIZE = 15;
+
+let ITEMS = [];
+let TFIDF = {};
+let currentResults = [];
+let currentPage = 1;
+let activeCapFilter = "";
+let dataLoaded = false;
+
+// Load data lazily after auth
+function loadData(){
+  if(dataLoaded) return;
+  document.getElementById("resultsList").innerHTML='<div class="loading">Loading search index&hellip;</div>';
+  Promise.all([
+    fetch("kb_items.json").then(r=>r.json()),
+    fetch("kb_index.json").then(r=>r.json())
+  ]).then(([items, index])=>{
+    ITEMS = items;
+    TFIDF = index;
+    dataLoaded = true;
+    buildCapFilters();
+    buildStats();
+    doSearch();
+  }).catch(err=>{
+    document.getElementById("resultsList").innerHTML=
+      '<div class="no-results"><h3>Failed to load data</h3><p>'+err+'</p></div>';
+  });
+}
+
+// If already authenticated on page load, load data immediately
+document.addEventListener("DOMContentLoaded",()=>{
+  const HASH="c09d7446cfaec9af73e66dc0e189b0cedd18d2ff54813e92fadb5a659aab20de";
+  const KEY_AUTH="pixe_dash_auth";
+  const KEY_EMAIL="pixe_dash_email";
+  if(sessionStorage.getItem(KEY_AUTH)===HASH&&sessionStorage.getItem(KEY_EMAIL)){
+    loadData();
+  }
+});
+
+// -- Build capability filter buttons ------------------------------------------
+function buildCapFilters(){
+  const caps = [...new Set(ITEMS.map(i=>i.capability||"Other"))].sort();
+  const row = document.querySelector(".filter-row");
+  // Remove old cap buttons (keep "All")
+  row.querySelectorAll(".cap-filter:not([data-cap=''])").forEach(b=>b.remove());
+  caps.forEach(cap=>{
+    const btn = document.createElement("button");
+    btn.className = "cap-filter";
+    btn.dataset.cap = cap;
+    btn.textContent = cap;
+    btn.style.borderColor = CAP_COLORS[cap]||"#605e5c";
+    btn.style.color = CAP_COLORS[cap]||"#605e5c";
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".cap-filter").forEach(b=>{
+        b.classList.remove("active");
+        b.style.background="";
+        b.style.color=CAP_COLORS[b.dataset.cap]||"#605e5c";
+      });
+      btn.classList.add("active");
+      btn.style.background = CAP_COLORS[cap]||"#605e5c";
+      btn.style.color = "#fff";
+      activeCapFilter = cap;
+      doSearch();
+    });
+    row.appendChild(btn);
+  });
+
+  // All button
+  document.querySelector(".cap-filter[data-cap='']").addEventListener("click", function(){
+    document.querySelectorAll(".cap-filter").forEach(b=>{
+      b.classList.remove("active");
+      b.style.background="";
+      b.style.color=CAP_COLORS[b.dataset.cap]||"#605e5c";
+    });
+    this.classList.add("active");
+    this.style.background="#0078d4";
+    this.style.color="#fff";
+    activeCapFilter="";
+    doSearch();
+  });
+}
+
+// -- Stats bar ----------------------------------------------------------------
+function buildStats(){
+  const capCounts = {};
+  ITEMS.forEach(i=>{ capCounts[i.capability||"Other"] = (capCounts[i.capability||"Other"]||0)+1; });
+  const top3 = Object.entries(capCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const statsBar = document.getElementById("statsBar");
+  statsBar.innerHTML =
+    `<div class="stat-chip"><strong>${ITEMS.length.toLocaleString()}</strong> total resolved cases</div>` +
+    top3.map(([cap,n])=>`<div class="stat-chip"><strong style="color:${CAP_COLORS[cap]||"#0078d4"}">${n}</strong> ${cap}</div>`).join('');
+}
+
+// -- TF-IDF search -------------------------------------------------------------
+function tokenize(text){
+  const STOPWORDS = new Set(["the","and","for","are","was","has","had","not","but","its",
+    "this","that","with","have","from","they","been","will","when","can","please",
+    "could","would","also","your","our","may","per","all","any","one","two","get",
+    "let","set","new","use","via","due","see","inc","ltd","llc"]);
+  return text.toLowerCase().match(/[a-z0-9]{3,}/g)?.filter(w=>!STOPWORDS.has(w))||[];
+}
+
+function search(query, items){
+  if(!query.trim()) return items.map(it=>{return{item:it,score:0,terms:[]}});
+  const terms = [...new Set(tokenize(query))];
+  if(!terms.length) return items.map(it=>{return{item:it,score:0,terms:[]}});
+
+  // Score each item using prebuilt TF-IDF
+  const scores = {};
+  const termHits = {};
+  terms.forEach(term=>{
+    const postings = TFIDF[term]||{};
+    const prefixMatches = term.length>=4
+      ? Object.keys(TFIDF).filter(t=>t.startsWith(term)&&t!==term)
+      : [];
+    [...Object.entries(postings), ...prefixMatches.flatMap(t=>Object.entries(TFIDF[t]||{}).map(([id,s])=>[id,s*0.7]))]
+      .forEach(([id,s])=>{
+        scores[id]=(scores[id]||0)+s;
+        if(!termHits[id]) termHits[id]=new Set();
+        termHits[id].add(term);
+      });
+  });
+
+  return Object.entries(scores)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,200)
+    .map(([id,score])=>{
+      const item=items.find(i=>String(i.id)===String(id));
+      if(!item) return null;
+      return {item,score,terms:[...( termHits[id]||new Set())]};
+    })
+    .filter(Boolean);
+}
+
+function escHtml(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function highlight(text, terms){
+  if(!text||!terms||!terms.length) return escHtml(text||"");
+  let s=escHtml(text);
+  terms.forEach(t=>{
+    const re=new RegExp("("+t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi");
+    s=s.replace(re,'<span class="highlight">$1</span>');
+  });
+  return s;
+}
+
+function capBadge(cap){
+  const c = CAP_COLORS[cap]||"#605e5c";
+  return `<span class="cap-badge" style="background:${c}">${escHtml(cap||"Other")}</span>`;
+}
+
+function renderResults(){
+  const header = document.getElementById("resultsHeader");
+  const list   = document.getElementById("resultsList");
+
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page  = currentResults.slice(start, start+PAGE_SIZE);
+
+  if(currentResults.length===0){
+    header.textContent="";
+    list.innerHTML=`<div class="no-results">
+      <h3>No matching cases found</h3>
+      <p>Try different keywords, check spelling, or remove the capability filter.</p>
+    </div>`;
+    document.getElementById("pager").innerHTML="";
+    return;
+  }
+
+  header.innerHTML=`Showing <strong>${start+1}&ndash;${Math.min(start+PAGE_SIZE,currentResults.length)}</strong> of <strong>${currentResults.length}</strong> matching cases`;
+
+  list.innerHTML = page.map(r=>{
+    const it=r.item;
+    const pct=r.score>0?Math.min(100,Math.round(r.score*500)):"";
+    const resolvedDate=it.resolved_date||it.changed_date?.substring(0,10)||"";
+    const stateCls=it.state==="Closed"?"closed":"";
+    const rawSummary=it.ai_summary||it.description_preview||"";
+    // Render structured summary sections if present
+    function renderSummary(text, terms){
+      if(!text) return "";
+      const sections=[
+        {key:"ISSUE",     label:"&#128203; Issue",      color:"#0078d4"},
+        {key:"ROOT CAUSE",label:"&#128270; Root Cause",  color:"#d13438"},
+        {key:"RESOLUTION",label:"&#9989; Resolution",    color:"#107c10"},      ];
+      let structured=false;
+      let html="";
+      for(const s of sections){
+        const re=new RegExp(s.key+":\\s*([\\s\\S]*?)(?=(?:ISSUE:|ROOT CAUSE:|RESOLUTION:|$))","i");
+        const m=text.match(re);
+        if(m && m[1].trim()){
+          structured=true;
+          const content=highlight(m[1].trim(), terms);
+          html+=`<div class="summary-section"><span class="summary-label" style="color:${s.color}">${s.label}:</span> <span class="summary-content">${content}</span></div>`;
+        }
+      }
+      return structured ? `<div class="summary-structured">${html}</div>` : `<div class="card-summary">${highlight(text, terms)}</div>`;
+    }
+    return `<div class="result-card">
+      <div class="card-header">
+        ${pct?`<span class="score-badge">${pct}% match</span>`:""}
+        <div class="card-title">
+          <a href="${it.url}" target="_blank">#${it.id}</a>
+          &nbsp;${highlight(it.title, r.terms)}
+        </div>
+      </div>
+      <div class="card-meta">
+        ${capBadge(it.capability||"Other")}
+        <span class="state-badge ${stateCls}">${escHtml(it.state||"")}</span>
+        ${it.partner_name?`<span class="meta-item">&#127962; ${escHtml(it.partner_name)}</span>`:"" }
+        ${resolvedDate?`<span class="meta-item">&#10003; Resolved: ${resolvedDate}</span>`:""}
+        ${it.operation_type?`<span class="meta-item">&#128203; ${escHtml(it.operation_type)}</span>`:""}
+      </div>
+      ${renderSummary(rawSummary, r.terms)}
+    </div>`;
+  }).join("");
+
+  // Pager
+  const totalPages = Math.ceil(currentResults.length/PAGE_SIZE);
+  const pager = document.getElementById("pager");
+  if(totalPages<=1){ pager.innerHTML=""; return; }
+  let btns="";
+  const range=5;
+  const lo=Math.max(1,currentPage-range);
+  const hi=Math.min(totalPages,currentPage+range);
+  if(lo>1) btns+=`<button onclick="goPage(1)">1</button>${lo>2?'<span>&#8230;</span>':''}`;
+  for(let p=lo;p<=hi;p++) btns+=`<button class="${p===currentPage?"active":""}" onclick="goPage(${p})">${p}</button>`;
+  if(hi<totalPages) btns+=`${hi<totalPages-1?'<span>&#8230;</span>':''}<button onclick="goPage(${totalPages})">${totalPages}</button>`;
+  pager.innerHTML=btns;
+}
+
+function goPage(p){
+  currentPage=p;
+  renderResults();
+  window.scrollTo({top:200,behavior:"smooth"});
+}
+
+function doSearch(){
+  if(!dataLoaded) return;
+  const query = document.getElementById("searchInput").value;
+  let pool = activeCapFilter ? ITEMS.filter(i=>i.capability===activeCapFilter) : ITEMS;
+
+  if(!query.trim()){
+    currentResults = pool
+      .sort((a,b)=>(b.resolved_date||"").localeCompare(a.resolved_date||""))
+      .map(it=>{return{item:it,score:0,terms:[]}});
+  } else {
+    currentResults = search(query, ITEMS);
+    if(activeCapFilter) currentResults=currentResults.filter(r=>r.item.capability===activeCapFilter);
+  }
+
+  currentPage=1;
+  renderResults();
+}
+
+// -- Wire up events ------------------------------------------------------------
+document.getElementById("searchBtn").addEventListener("click", doSearch);
+document.getElementById("searchInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter") doSearch();
+});
+let debTimer;
+document.getElementById("searchInput").addEventListener("input", ()=>{
+  clearTimeout(debTimer);
+  debTimer=setTimeout(doSearch, 300);
+});
+</script>
+</body>
+</html>
